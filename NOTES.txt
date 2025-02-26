@@ -1,0 +1,5 @@
+The graph should have 4 overlay possible compontents:
+Sugar level - tracked over time, anomalies highlighted. 
+Insulin levels — overlayed on to the above
+Physical activity levels — use dummy for now
+Food calory level — use dummy for now. 
