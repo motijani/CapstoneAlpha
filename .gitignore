@@ -1,0 +1,6 @@
+#Ahnaf's local repo git ignore
+
+AlphaCGM/package-lock.json
+AlphaCGM/package.json
+AlphaCGM/tsconfig.json
+AlphaCGM/tailwind.config.js
