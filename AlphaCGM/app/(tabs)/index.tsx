@@ -58,7 +58,7 @@ export default function HomeScreen() {
       <ThemedView style={styles.stepContainer}>
         <TouchableOpacity
           style={styles.button}
-          onPress={() => router.push('../graph_view')}>
+          onPress={() => router.push('../signin')}>
           <ThemedText type="defaultSemiBold">Go to Next Page</ThemedText>
         </TouchableOpacity>
       </ThemedView>

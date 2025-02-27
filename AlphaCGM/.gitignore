@@ -37,7 +37,7 @@ yarn-error.*
 
 app-example
 
-#Ahnaf's local repo ignore
+#Version issues
 package.json
 package-lock.json
 tsconfig.json
