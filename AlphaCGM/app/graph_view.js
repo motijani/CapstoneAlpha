@@ -1,5 +1,9 @@
 import React from 'react';
 import { View, Text, StyleSheet, SafeAreaView } from 'react-native';
+import { TouchableOpacity } from 'react-native';
+import { ThemedText } from '../components/ThemedText';
+import { Link, router } from 'expo-router';
+
 
 export default function GraphView() {
   return (
@@ -45,7 +49,10 @@ export default function GraphView() {
       {/* Circular Placeholders */}
       <View style={styles.circlesContainer}>
         <View style={styles.circlePlaceholder}>
-          <Text style={styles.circleText}>View 1</Text>
+        <TouchableOpacity
+          /*ADD THE PAGE NAME HERE FOR THE THIRD VIEW */onPress={() => router.push('../signup')}> 
+          <ThemedText type="defaultSemiBold" style={styles.highlight}>View 1</ThemedText>
+        </TouchableOpacity>
         </View>
         <View style={styles.circlePlaceholder}>
           <Text style={styles.circleText}>View 2</Text>
