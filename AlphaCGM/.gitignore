@@ -42,3 +42,11 @@ package.json
 package-lock.json
 tsconfig.json
 
+AlphaCGM/package-lock.json
+AlphaCGM/package.json
+AlphaCGM/tsconfig.json
+AlphaCGM/tailwind.config.js
+AlphaCGM/app.json
+AlphaCGM/eas.json
+AlphaCGM/metro.config.json
+AlphaCGM/expo-env.d.ts

@@ -1,11 +1,24 @@
 import React from 'react';
-import { View, Text, StyleSheet, SafeAreaView } from 'react-native';
-import { TouchableOpacity } from 'react-native';
-import { ThemedText } from '../components/ThemedText';
-import { Link, router } from 'expo-router';
-
+import { View, Text, StyleSheet, SafeAreaView, TouchableOpacity } from 'react-native';
+import { router } from 'expo-router';
 
 export default function GraphView() {
+  // Navigation handlers
+  const handleNavigateToView1 = () => {
+    // For now, just log since View 1 isn't implemented
+    console.log('Navigate to View 1');
+  };
+  
+  const handleNavigateToView2 = () => {
+    // Navigate to secondview
+    router.push('/secondview');
+  };
+  
+  const handleNavigateToView3 = () => {
+    // For now, just log since View 3 isn't implemented
+    console.log('Navigate to View 3');
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       {/* Header */}
@@ -46,20 +59,31 @@ export default function GraphView() {
         </View>
       </View>
 
-      {/* Circular Placeholders */}
+      {/* Circular Placeholders - Now TouchableOpacity */}
       <View style={styles.circlesContainer}>
-        <View style={styles.circlePlaceholder}>
-        <TouchableOpacity
-          /*ADD THE PAGE NAME HERE FOR THE THIRD VIEW */onPress={() => router.push('../signup')}> 
-          <ThemedText type="defaultSemiBold" style={styles.highlight}>View 1</ThemedText>
+        <TouchableOpacity 
+          style={styles.circlePlaceholder}
+          onPress={handleNavigateToView1}
+          activeOpacity={0.7}
+        >
+          <Text style={styles.circleText}>View 1</Text>
         </TouchableOpacity>
-        </View>
-        <View style={styles.circlePlaceholder}>
+        
+        <TouchableOpacity 
+          style={styles.circlePlaceholder}
+          onPress={handleNavigateToView2}
+          activeOpacity={0.7}
+        >
           <Text style={styles.circleText}>View 2</Text>
-        </View>
-        <View style={styles.circlePlaceholder}>
+        </TouchableOpacity>
+        
+        <TouchableOpacity 
+          style={styles.circlePlaceholder}
+          onPress={handleNavigateToView3}
+          activeOpacity={0.7}
+        >
           <Text style={styles.circleText}>View 3</Text>
-        </View>
+        </TouchableOpacity>
       </View>
     </SafeAreaView>
   );

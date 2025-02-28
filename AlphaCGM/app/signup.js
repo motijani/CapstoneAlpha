@@ -68,7 +68,7 @@ const SignUp = () => {
             <Text style={styles.signupText}>Have an account already?</Text>
             <TouchableOpacity
                      style={styles.button}
-                     onPress={() => router.push('../signin')}>
+                     onPress={() => router.push('/signin')}>
                      <ThemedText type="defaultSemiBold" style={styles.highlight}>Sign in</ThemedText>
                    </TouchableOpacity>
           </View>

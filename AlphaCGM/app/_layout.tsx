@@ -35,6 +35,7 @@ export default function RootLayout() {
         <Stack.Screen name="signin" />
         <Stack.Screen name="signup" />
         <Stack.Screen name="graph_view" />
+        <Stack.Screen name="secondview"/>
       </Stack>
       <StatusBar style="auto" />
     </ThemeProvider>
