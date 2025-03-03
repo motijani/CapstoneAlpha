@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet, SafeAreaView, TouchableOpacity } from 'react-native';
 import { router } from 'expo-router';
 
-export default function GraphView() {
+export default function gluscoseView() {
   // Navigation handlers
   const handleNavigateToView1 = () => {
     // For now, just log since View 1 isn't implemented
