@@ -35,7 +35,7 @@ export default function HomeScreen() {
         
         <TouchableOpacity
           style={[styles.button, {marginTop: 10}]}
-          onPress={() => router.push('/graph_view')}>
+          onPress={() => router.push('/glucose')}>
           <ThemedText type="defaultSemiBold" style={styles.buttonText}>Graph View</ThemedText>
         </TouchableOpacity>
 
