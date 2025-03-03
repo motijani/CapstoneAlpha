@@ -41,7 +41,7 @@ export default function HomeScreen() {
 
         <TouchableOpacity
           style={[styles.button, {marginTop: 10}]}
-          onPress={() => router.push('../secondview')}>
+          onPress={() => router.push('/secondview')}>
           <ThemedText type="defaultSemiBold" style={styles.buttonText}>Second View</ThemedText>
         </TouchableOpacity>
 
