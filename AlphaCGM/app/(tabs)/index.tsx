@@ -36,16 +36,20 @@ export default function HomeScreen() {
         <TouchableOpacity
           style={[styles.button, {marginTop: 10}]}
           onPress={() => router.push('/glucose')}>
-          <ThemedText type="defaultSemiBold" style={styles.buttonText}>Graph View</ThemedText>
+          <ThemedText type="defaultSemiBold" style={styles.buttonText}>Gluscose</ThemedText>
         </TouchableOpacity>
 
         <TouchableOpacity
           style={[styles.button, {marginTop: 10}]}
-          onPress={() => router.push('/secondview')}>
-          <ThemedText type="defaultSemiBold" style={styles.buttonText}>Second View</ThemedText>
+          onPress={() => router.push('/exercise')}>
+          <ThemedText type="defaultSemiBold" style={styles.buttonText}>Exercise</ThemedText>
         </TouchableOpacity>
 
-
+        <TouchableOpacity
+          style={[styles.button, {marginTop: 10}]}
+          onPress={() => router.push('/calories')}>
+          <ThemedText type="defaultSemiBold" style={styles.buttonText}>Calories</ThemedText>
+        </TouchableOpacity>
 
 
 
