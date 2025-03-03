@@ -2,35 +2,34 @@ import React from 'react';
 import { View, Text, StyleSheet, SafeAreaView, TouchableOpacity } from 'react-native';
 import { router } from 'expo-router';
 
-export default function SecondView() {
-  // Navigation handler to go back
-  const handleBack = () => {
-    router.back();
+export default function secondview() {
+  // Navigation handlers
+  const handleNavigateToView1 = () => {
+    // For now, just log since View 1 isn't implemented
+    console.log('Navigate to View 1');
+  };
+  
+  const handleNavigateToView2 = () => {
+    // Navigate to secondview
+    router.push('/secondview');
+  };
+  
+  const handleNavigateToView3 = () => {
+    // For now, just log since View 3 isn't implemented
+    console.log('Navigate to View 3');
   };
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Header with back button */}
+      {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={handleBack}>
-          <Text style={styles.backButton}>← Back</Text>
-        </TouchableOpacity>
+        <Text style={styles.title}>GL Level</Text>
+        <Text style={styles.dateRange}>February 1st - March 2nd</Text>
       </View>
 
-      {/* Date Range */}
-      <Text style={styles.dateRange}>February 1st - March 2nd</Text>
-
-      {/* Circular Indicators */}
-      <View style={styles.circlesContainer}>
-        <View style={styles.circle}>
-          <Text style={styles.circleValue}>xxx</Text>
-          <Text style={styles.circleUnit}>mg/dL</Text>
-        </View>
-        
-        <View style={styles.circle}>
-          <Text style={styles.circleValue}>xx</Text>
-          <Text style={styles.circleUnit}>U</Text>
-        </View>
+      {/* Chart Placeholder */}
+      <View style={styles.chartContainer}>
+        <Text style={styles.chartPlaceholder}>[Line Chart Placeholder]</Text>
       </View>
 
       {/* Tabs (Today, 1W, 1M, etc.) */}
@@ -39,36 +38,52 @@ export default function SecondView() {
         <Text style={styles.tabItem}>1W</Text>
         <Text style={styles.tabItem}>1M</Text>
         <Text style={styles.tabItem}>3M</Text>
-        <Text style={styles.tabItem}>6m</Text>
+        <Text style={styles.tabItem}>6M</Text>
         <Text style={styles.tabItem}>1Y</Text>
       </View>
 
-      {/* Stats List */}
-      <View style={styles.statsContainer}>
-        <View style={styles.statRow}>
-          <Text style={styles.statLabel}>Stat 1:</Text>
-          <Text style={styles.statValue}>-</Text>
+      {/* Glucose & Insulin Metrics */}
+      <View style={styles.metricsContainer}>
+        <View style={styles.metricBox}>
+          <Text style={styles.metricTitle}>Glucose</Text>
+          <Text style={styles.metricValue}>High: XX</Text>
+          <Text style={styles.metricValue}>Low: XX</Text>
+          <Text style={styles.metricValue}>Average: XX</Text>
         </View>
+
+        <View style={styles.metricBox}>
+          <Text style={styles.metricTitle}>Insulin</Text>
+          <Text style={styles.metricValue}>High: XX</Text>
+          <Text style={styles.metricValue}>Low: XX</Text>
+          <Text style={styles.metricValue}>Average: XX</Text>
+        </View>
+      </View>
+
+      {/* Circular Placeholders - Now TouchableOpacity */}
+      <View style={styles.circlesContainer}>
+        <TouchableOpacity 
+          style={styles.circlePlaceholder}
+          onPress={handleNavigateToView1}
+          activeOpacity={0.7}
+        >
+          <Text style={styles.circleText}>View 1</Text>
+        </TouchableOpacity>
         
-        <View style={styles.statRow}>
-          <Text style={styles.statLabel}>Stat 2:</Text>
-          <Text style={styles.statValue}>-</Text>
-        </View>
+        <TouchableOpacity 
+          style={styles.circlePlaceholder}
+          onPress={handleNavigateToView2}
+          activeOpacity={0.7}
+        >
+          <Text style={styles.circleText}>View 2</Text>
+        </TouchableOpacity>
         
-        <View style={styles.statRow}>
-          <Text style={styles.statLabel}>Stat 3:</Text>
-          <Text style={styles.statValue}>-</Text>
-        </View>
-        
-        <View style={styles.statRow}>
-          <Text style={styles.statLabel}>Stat 4:</Text>
-          <Text style={styles.statValue}>-</Text>
-        </View>
-        
-        <View style={styles.statRow}>
-          <Text style={styles.statLabel}>Stat 5:</Text>
-          <Text style={styles.statValue}>-</Text>
-        </View>
+        <TouchableOpacity 
+          style={styles.circlePlaceholder}
+          onPress={handleNavigateToView3}
+          activeOpacity={0.7}
+        >
+          <Text style={styles.circleText}>View 3</Text>
+        </TouchableOpacity>
       </View>
     </SafeAreaView>
   );
@@ -78,81 +93,81 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#FFFFFF',
-    paddingHorizontal: 20,
-    paddingTop: 50,
+    paddingHorizontal: 16,
+    paddingTop: 50, // or use SafeAreaView for iOS
   },
   header: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 20,
   },
-  backButton: {
-    fontSize: 16,
-    color: '#007AFF',
-  },
-  dateRange: {
-    fontSize: 16,
-    color: '#333',
-    textAlign: 'center',
-    marginBottom: 30,
-  },
-  circlesContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    marginBottom: 40,
-  },
-  circle: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    borderWidth: 1,
-    borderColor: '#E6E6FA', // Light lavender color
-    backgroundColor: 'white',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  circleValue: {
+  title: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#333',
   },
-  circleUnit: {
+  dateRange: {
     fontSize: 14,
     color: '#666',
   },
+  chartContainer: {
+    height: 120,
+    borderRadius: 10,
+    backgroundColor: '#F0F0F0',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  chartPlaceholder: {
+    color: '#999',
+  },
   tabContainer: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    borderBottomWidth: 1,
-    borderBottomColor: '#E0E0E0',
-    paddingBottom: 10,
-    marginBottom: 30,
+    justifyContent: 'space-around',
+    marginBottom: 20,
   },
   tabItem: {
     fontSize: 14,
     color: '#999',
-    paddingHorizontal: 5,
   },
   activeTab: {
-    color: '#333',
+    color: '#7D4ED4',
     fontWeight: 'bold',
   },
-  statsContainer: {
-    marginTop: 10,
-  },
-  statRow: {
+  metricsContainer: {
     flexDirection: 'row',
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F0F0F0',
+    justifyContent: 'space-between',
+    marginBottom: 20,
   },
-  statLabel: {
-    fontSize: 16,
-    color: '#333',
+  metricBox: {
     flex: 1,
+    marginHorizontal: 5,
+    alignItems: 'center',
   },
-  statValue: {
+  metricTitle: {
     fontSize: 16,
-    color: '#666',
-  }
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  metricValue: {
+    fontSize: 14,
+    color: '#333',
+  },
+  circlesContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    marginBottom: 20,
+  },
+  circlePlaceholder: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: '#F3E8FF',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  circleText: {
+    fontSize: 12,
+    color: '#7D4ED4',
+  },
 });
