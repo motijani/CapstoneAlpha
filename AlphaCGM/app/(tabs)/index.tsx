@@ -5,6 +5,7 @@ import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import { TouchableOpacity } from 'react-native';
 import { useRouter } from 'expo-router';
+import React from 'react';
 
 export default function HomeScreen() {
 
@@ -36,7 +37,7 @@ export default function HomeScreen() {
         <TouchableOpacity
           style={[styles.button, {marginTop: 10}]}
           onPress={() => router.push('/glucose')}>
-          <ThemedText type="defaultSemiBold" style={styles.buttonText}>Gluscose</ThemedText>
+          <ThemedText type="defaultSemiBold" style={styles.buttonText}>Glucose</ThemedText>
         </TouchableOpacity>
 
         <TouchableOpacity
