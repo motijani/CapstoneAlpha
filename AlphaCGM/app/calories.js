@@ -45,14 +45,7 @@ export default function caloriesView() {
       {/* Glucose & Insulin Metrics */}
       <View style={styles.metricsContainer}>
         <View style={styles.metricBox}>
-          <Text style={styles.metricTitle}>Glucose</Text>
-          <Text style={styles.metricValue}>High: XX</Text>
-          <Text style={styles.metricValue}>Low: XX</Text>
-          <Text style={styles.metricValue}>Average: XX</Text>
-        </View>
-
-        <View style={styles.metricBox}>
-          <Text style={styles.metricTitle}>Insulin</Text>
+          <Text style={styles.metricTitle}>Calories</Text>
           <Text style={styles.metricValue}>High: XX</Text>
           <Text style={styles.metricValue}>Low: XX</Text>
           <Text style={styles.metricValue}>Average: XX</Text>
