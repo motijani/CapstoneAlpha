@@ -5,18 +5,16 @@ import { router } from 'expo-router';
 export default function caloriesView() {
   // Navigation handlers
   const handleNavigateToView1 = () => {
-    // For now, just log since View 1 isn't implemented
-    console.log('Navigate to View 1');
+    router.push('/glucose')
   };
-  
+
   const handleNavigateToView2 = () => {
     // Navigate to secondview
-    router.push('/secondview');
+    router.push('/calories');
   };
   
   const handleNavigateToView3 = () => {
-    // For now, just log since View 3 isn't implemented
-    console.log('Navigate to View 3');
+    router.push('/exercise')
   };
 
   return (
