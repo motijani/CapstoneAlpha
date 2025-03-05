@@ -17,9 +17,9 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen 
-        name="excercise"
+        name="exercise"
         options={{
-          title: 'Excercise',
+          title: 'Exercise',
           tabBarIcon: ({ color, size }) => <Ionicons name="compass-outline" color={color} size={size} />,
         }}
       />
