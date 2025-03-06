@@ -19,7 +19,7 @@ const SignIn = () => {
     if (form.email === "" || form.password === "") {
       Alert.alert("Error", "Please fill in all fields");
     }
-    router.push('../(graphs)/calories')
+    router.push('../(graphs)/glucose')
     setSubmitting(true);
     // Authentication logic here
     

@@ -9,24 +9,24 @@ export default function TabLayout() {
         headerShown: false,
       }}
     >
-      <Tabs.Screen 
+       <Tabs.Screen 
+        name="glucose"
+        options={{
+          title: 'Glucose',
+          tabBarIcon: ({ color, size }) => <Ionicons name="compass-outline" color={color} size={size} />,
+        }}
+      />
+       <Tabs.Screen 
         name="calories"
         options={{
           title: 'Calories',
           tabBarIcon: ({ color, size }) => <Ionicons name="home-outline" color={color} size={size} />,
         }}
       />
-      <Tabs.Screen 
+       <Tabs.Screen 
         name="exercise"
         options={{
           title: 'Exercise',
-          tabBarIcon: ({ color, size }) => <Ionicons name="compass-outline" color={color} size={size} />,
-        }}
-      />
-       <Tabs.Screen 
-        name="glucose"
-        options={{
-          title: 'Glucose',
           tabBarIcon: ({ color, size }) => <Ionicons name="compass-outline" color={color} size={size} />,
         }}
       />
