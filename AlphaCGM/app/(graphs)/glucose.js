@@ -1,85 +1,183 @@
-import React from 'react';
-import { View, Text, StyleSheet, SafeAreaView, TouchableOpacity } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { View, Text, StyleSheet, SafeAreaView, TouchableOpacity, Platform } from 'react-native';
 import { router } from 'expo-router';
 import { WebView } from 'react-native-webview';
 
-export default function gluscoseView() {
+export default function glucoseView() {
+  //Our initial starting date for reference
+  const [currentDate, setCurrentDate] = useState('2015-06-06 16:50:00'); // Default date in ISO format
+  const vizRef = useRef(null);
+  
   // Navigation handlers
   const handleNavigateToView1 = () => {
-    router.push('/glucose')
+    router.push('/glucose');
   };
 
   const handleNavigateToView2 = () => {
-    // Navigate to secondview
     router.push('/calories');
   };
   
   const handleNavigateToView3 = () => {
-    router.push('/exercise')
+    router.push('/exercise');
   };
 
-  const tableauEmbedHTML = `
-  <div class='tableauPlaceholder' id='viz1741218063289' style='position: relative'>
-    <noscript>
-      <a href='#'>
-        <img alt='Sheet 1' src='https://public.tableau.com/static/images/Sa/Sample1_17394932043110/Sheet1/1_rss.png' style='border: none' />
-      </a>
-    </noscript>
-    <object class='tableauViz' style='display:none;'>
-      <param name='host_url' value='https%3A%2F%2Fpublic.tableau.com%2F' />
-      <param name='embed_code_version' value='3' />
-      <param name='site_root' value='' />
-      <param name='name' value='Sample1_17394932043110/Sheet1' />
-      <param name='tabs' value='no' />
-      <param name='toolbar' value='yes' />
-      <param name='static_image' value='https://public.tableau.com/static/images/Sa/Sample1_17394932043110/Sheet1/1.png' />
-      <param name='animate_transition' value='yes' />
-      <param name='display_static_image' value='yes' />
-      <param name='display_spinner' value='yes' />
-      <param name='display_overlay' value='yes' />
-      <param name='display_count' value='yes' />
-      <param name='language' value='en-US' />
-      <param name='filter' value='publish=yes' />
-    </object>
-  </div>
-  <script type='text/javascript'>
-    var divElement = document.getElementById('viz1741218063289');
-    var vizElement = divElement.getElementsByTagName('object')[0];
-    vizElement.style.width='100%';
-    vizElement.style.height=(divElement.offsetWidth*0.75)+'px';
-    var scriptElement = document.createElement('script');
-    scriptElement.src = 'https://public.tableau.com/javascripts/api/viz_v1.js';
-    vizElement.parentNode.insertBefore(scriptElement, vizElement);
-  </script>
-`;
+  // Function to generate HTML with the current date filter
+  const generateTableauHtml = (dateFilter) => {
+    return `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1">
+      <script type="module" src="https://public.tableau.com/javascripts/api/tableau.embedding.3.latest.min.js"></script>
+      <style>
+        body, html { margin: 0; padding: 0; height: 100%; width: 100%; overflow: hidden; }
+        tableau-viz { width: 100%; height: 100%; }
+      </style>
+    </head>
+    <body>
+     <tableau-viz 
+      id="tableauViz"
+      src="https://public.tableau.com/views/Sample1_17394932043110/Sheet1"
+      device="default"
+      toolbar="hidden"
+      hide-tabs
+      hide-title
+      hide-caption
+      hide-legend
+      hide-tooltips
+      hide-ui
+      hide-field-labels
+    >
+      <viz-filter field="Time" value="${dateFilter}" />
+    </tableau-viz>
 
-  return (
-    <SafeAreaView style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.title}>GL Level</Text>
-        <Text style={styles.dateRange}>February 1st - March 2nd</Text>
-      </View>
+      <script>
+        document.addEventListener('DOMContentLoaded', function() {
+          const viz = document.getElementById('tableauViz');
+          
+          viz.addEventListener('firstinteractive', function() {
+            console.log('Viz is interactive and loaded with date: ${dateFilter}');
+          });
+        });
+      </script>
+    </body>
+    </html>
+    `;
+  };
 
-      {/* Chart Placeholder */}
-      <View style={styles.chartContainer}>
+  // Get the current HTML with filters, for updating the tabs
+  const [tableauEmbedHTML, setTableauEmbedHTML] = useState(generateTableauHtml(currentDate));
+
+  // Function to update the date filter
+  const updateDateFilter = (newDate) => {
+    setCurrentDate(newDate);
+    if (Platform.OS === 'web' && vizRef.current) {
+      const dateFilter = vizRef.current.querySelector('viz-filter[field="Time"]');
+      if (dateFilter) {
+        dateFilter.setAttribute('value', newDate);
+      }
+    } else {
+      // For mobile, regenerate the HTML and update the WebView
+      setTableauEmbedHTML(generateTableauHtml(newDate));
+    }
+  };
+
+  // Web version with dynamic filter
+  const WebTableauEmbed = () => {
+    useEffect(() => {
+      // Effect to handle any web-specific initialization
+    }, []);
+
+    return (
+      <div style={{ width: '100%', height: '100%' }}>
+        <tableau-viz
+          ref={vizRef}
+          id="tableauViz"
+          src="https://public.tableau.com/views/Sample1_17394932043110/Sheet1"
+          device="default"
+          toolbar="hidden"
+          hide-tabs
+          hide-title
+          hide-caption
+          hide-legend
+          hide-tooltips
+          hide-ui
+          hide-field-labels
+        >
+          <viz-filter field="Time" value={currentDate}></viz-filter>
+        </tableau-viz>
+      </div>
+    );
+  };
+
+  // Render chart based on platform
+  const renderChart = () => {
+    if (Platform.OS === 'web') {
+      return <WebTableauEmbed />;
+    } else {
+      return (
         <WebView
+          key={currentDate} // This forces a re-render when the date changes
           originWhitelist={['*']}
           source={{ html: tableauEmbedHTML }}
           style={{ flex: 1 }}
           javaScriptEnabled={true}
           domStorageEnabled={true}
         />
+      );
+    }
+  };
+
+  //Way to easily format date for easy understanding
+  const formatDate = (dateString) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', { 
+      month: 'short', 
+      day: 'numeric', 
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
+
+  // Sample data set, wil be modified later to show range from now - till
+  const dateSamples = [
+    { label: 'Start', value: '2015-06-06 16:50:00' },  // Original start date
+    { label: 'Jun 7', value: '2015-06-07 10:00:00' },
+    { label: 'Jun 15', value: '2015-06-15 12:00:00' },
+    { label: 'Jul 1', value: '2015-07-01 08:00:00' },
+    { label: 'Aug 1', value: '2015-08-01 14:30:00' }
+  ];
+
+  return (
+    <SafeAreaView style={styles.container}>
+      {/* Header with current date */}
+      <View style={styles.header}>
+        <Text style={styles.title}>GL Level</Text>
+        <Text style={styles.dateRange}>{formatDate(currentDate)}</Text>
       </View>
 
-      {/* Tabs (Today, 1W, 1M, etc.) */}
+      {/* Chart Container */}
+      <View style={styles.chartContainer}>
+        {renderChart()}
+      </View>
+
+      {/* Date selection tabs */}
       <View style={styles.tabContainer}>
-        <Text style={[styles.tabItem, styles.activeTab]}>Today</Text>
-        <Text style={styles.tabItem}>1W</Text>
-        <Text style={styles.tabItem}>1M</Text>
-        <Text style={styles.tabItem}>3M</Text>
-        <Text style={styles.tabItem}>6M</Text>
-        <Text style={styles.tabItem}>1Y</Text>
+        {dateSamples.map((date) => (
+          <TouchableOpacity 
+            key={date.value} 
+            onPress={() => updateDateFilter(date.value)}
+          >
+            <Text style={[
+              styles.tabItem, 
+              currentDate === date.value ? styles.activeTab : null
+            ]}>
+              {date.label}
+            </Text>
+          </TouchableOpacity>
+        ))}
       </View>
 
       {/* Glucose & Insulin Metrics */}
@@ -99,7 +197,7 @@ export default function gluscoseView() {
         </View>
       </View>
 
-      {/* Circular Placeholders - Now TouchableOpacity */}
+      {/* Navigation Buttons */}
       <View style={styles.circlesContainer}>
         <TouchableOpacity 
           style={styles.circlePlaceholder}
@@ -134,7 +232,7 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#FFFFFF',
     paddingHorizontal: 16,
-    paddingTop: 50, // or use SafeAreaView for iOS
+    paddingTop: Platform.OS === 'web' ? 20 : 50,
   },
   header: {
     flexDirection: 'row',
@@ -151,14 +249,11 @@ const styles = StyleSheet.create({
     color: '#666',
   },
   chartContainer: {
-    height: 120,
+    height: 350,
     borderRadius: 10,
-    overflow: 'hidden', // ensure WebView respects container boundaries
+    overflow: 'hidden',
     backgroundColor: '#F0F0F0',
     marginBottom: 16,
-  },
-  chartPlaceholder: {
-    color: '#999',
   },
   tabContainer: {
     flexDirection: 'row',
@@ -168,10 +263,13 @@ const styles = StyleSheet.create({
   tabItem: {
     fontSize: 14,
     color: '#999',
+    padding: 5,
   },
   activeTab: {
     color: '#7D4ED4',
     fontWeight: 'bold',
+    borderBottomWidth: 2,
+    borderBottomColor: '#7D4ED4',
   },
   metricsContainer: {
     flexDirection: 'row',
