@@ -60,6 +60,7 @@ const styles = StyleSheet.create({
   },
   input: {
     flex: 1,
+    height: "80%",
     color: 'white',
     fontSize: 16,
     fontWeight: '600',
