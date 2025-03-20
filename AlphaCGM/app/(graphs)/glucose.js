@@ -1,13 +1,16 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, memo } from 'react';
 import { View, Text, StyleSheet, SafeAreaView, TouchableOpacity, Platform } from 'react-native';
 import { router } from 'expo-router';
 import { WebView } from 'react-native-webview';
 
-export default function glucoseView() {
-  //Our initial starting date for reference
-  const [currentDate, setCurrentDate] = useState('2015-06-06 16:50:00'); // Default date in ISO format
+export default function GlucoseView() {
+  // Default to a single day for detailed 5-minute intervals
+  const [dateRange, setDateRange] = useState({
+    startDate: '2025-03-01',
+    endDate: '2025-03-01'
+  });
   const vizRef = useRef(null);
-  
+
   // Navigation handlers
   const handleNavigateToView1 = () => {
     router.push('/glucose');
@@ -16,49 +19,140 @@ export default function glucoseView() {
   const handleNavigateToView2 = () => {
     router.push('/calories');
   };
-  
+
   const handleNavigateToView3 = () => {
     router.push('/exercise');
   };
 
-  // Function to generate HTML with the current date filter
-  const generateTableauHtml = (dateFilter) => {
+  const [glucoseMetrics, setGlucoseMetrics] = useState({
+    glucoseAvg: 'XX',
+    glucoseMin: 'XX',
+    glucoseMax: 'XX'
+  });
+
+  // Helper: if filtering a single day, append full day time stamps.
+  const formatDateTime12Hour = (dateStr, isStart) => {
+    const timeStr = isStart ? '00:00:00' : '23:59:59';
+    const dateTime = new Date(`${dateStr}T${timeStr}`);
+    return dateTime.toLocaleString('en-US', {
+      month: 'numeric',
+      day: 'numeric',
+      year: 'numeric',
+      hour: 'numeric',
+      minute: 'numeric',
+      second: 'numeric',
+      hour12: true
+    });
+  };
+  
+  const getDateTimeRange = (startDate, endDate) => {
+    if (startDate === endDate) {
+      return {
+        start: formatDateTime12Hour(startDate, true),
+        end: formatDateTime12Hour(endDate, false)
+      };
+    }
+    return { start: startDate, end: endDate };
+  };
+
+  // Generate HTML with both parameter updates and data retrieval code.
+  const generateTableauHtml = (startDate, endDate) => {
+    const { start, end } = getDateTimeRange(startDate, endDate);
     return `
     <!DOCTYPE html>
     <html>
     <head>
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width, initial-scale=1">
-      <script type="module" src="https://public.tableau.com/javascripts/api/tableau.embedding.3.latest.min.js"></script>
+      <script type="text/javascript" src="https://public.tableau.com/javascripts/api/tableau-2.min.js"></script>
       <style>
         body, html { margin: 0; padding: 0; height: 100%; width: 100%; overflow: hidden; }
-        tableau-viz { width: 100%; height: 100%; }
+        #vizContainer { width: 100%; height: 100%; }
       </style>
     </head>
     <body>
-     <tableau-viz 
-      id="tableauViz"
-      src="https://public.tableau.com/views/Sample1_17394932043110/Sheet1"
-      device="default"
-      toolbar="hidden"
-      hide-tabs
-      hide-title
-      hide-caption
-      hide-legend
-      hide-tooltips
-      hide-ui
-      hide-field-labels
-    >
-      <viz-filter field="Time" value="${dateFilter}" />
-    </tableau-viz>
-
+      <div id="vizContainer"></div>
+      
       <script>
-        document.addEventListener('DOMContentLoaded', function() {
-          const viz = document.getElementById('tableauViz');
+        let viz = null;
+        
+        // Initialize the visualization
+        function initViz() {
+          const containerDiv = document.getElementById("vizContainer");
+          const url = "https://public.tableau.com/views/Sample1_17394932043110/Sheet1";
           
-          viz.addEventListener('firstinteractive', function() {
-            console.log('Viz is interactive and loaded with date: ${dateFilter}');
-          });
+          const options = {
+            hideTabs: true,
+            hideToolbar: true,
+            width: "100%",
+            height: "100%",
+            disableAnimation: true,
+            onFirstInteractive: function() {
+              console.log("Viz is interactive and loaded");
+              const workbook = viz.getWorkbook();
+              workbook.changeParameterValueAsync("Start Date", "${start}")
+                .then(() => workbook.changeParameterValueAsync("End Date", "${end}"))
+                .then(function() {
+                  const sheet = workbook.getActiveSheet();
+                  let activeSheet = sheet;
+                  if (sheet.getSheetType() === 'dashboard') {
+                    const worksheets = sheet.getWorksheets();
+                    if (worksheets.length > 0) {
+                      activeSheet = worksheets[0];
+                    }
+                  }
+                  return activeSheet.zoomAsync("fitdata").then(() => activeSheet.getDataAsync());
+                })
+                .catch(function(err) {
+                  console.error("Error updating parameters, zoom, or retrieving data:", err);
+                });
+            }
+          };
+          
+          viz = new tableau.Viz(containerDiv, url, options);
+        }
+        
+        // Function to update parameters (and then re-retrieve data)
+        function applyDateFilter(startDate, endDate) {
+          if (!viz) return;
+          const workbook = viz.getWorkbook();
+          workbook.changeParameterValueAsync("Start Date", startDate)
+            .then(() => workbook.changeParameterValueAsync("End Date", endDate))
+            .then(function() {
+              const sheet = workbook.getActiveSheet();
+              let activeSheet = sheet;
+              if (sheet.getSheetType() === 'dashboard') {
+                const worksheets = sheet.getWorksheets();
+                if (worksheets.length > 0) {
+                  activeSheet = worksheets[0];
+                }
+              }
+              return activeSheet.zoomAsync("fitdata").then(() => activeSheet.getDataAsync());
+            })
+        }
+        
+        // Check if the Tableau API is loaded and available
+        function checkTableauAndInitialize() {
+          if (window.tableau && typeof window.tableau.Viz === 'function') {
+            initViz();
+          } else {
+            console.log("Waiting for Tableau API to be available...");
+            setTimeout(checkTableauAndInitialize, 100);
+          }
+        }
+        
+        document.addEventListener("DOMContentLoaded", function() {
+          checkTableauAndInitialize();
+        });
+        
+        // Listen for messages from React Native to update the parameters
+        window.addEventListener('message', function(event) {
+          const data = JSON.parse(event.data);
+          if (data.type === 'updateDateRange') {
+            const startDate = data.startDate === data.endDate ? data.startDate + 'T00:00:00' : data.startDate;
+            const endDate = data.startDate === data.endDate ? data.endDate + 'T23:59:59' : data.endDate;
+            applyDateFilter(startDate, endDate);
+          }
         });
       </script>
     </body>
@@ -66,96 +160,230 @@ export default function glucoseView() {
     `;
   };
 
-  // Get the current HTML with filters, for updating the tabs
-  const [tableauEmbedHTML, setTableauEmbedHTML] = useState(generateTableauHtml(currentDate));
+  // Initial HTML with date range
+  const [tableauEmbedHTML, setTableauEmbedHTML] = useState(
+    generateTableauHtml(dateRange.startDate, dateRange.endDate)
+  );
 
-  // Function to update the date filter
-  const updateDateFilter = (newDate) => {
-    setCurrentDate(newDate);
-    if (Platform.OS === 'web' && vizRef.current) {
-      const dateFilter = vizRef.current.querySelector('viz-filter[field="Time"]');
-      if (dateFilter) {
-        dateFilter.setAttribute('value', newDate);
+  // Function to update the date range parameter
+  const updateDateRangeFilter = (newStartDate, newEndDate) => {
+    setDateRange({
+      startDate: newStartDate,
+      endDate: newEndDate
+    });
+    
+    // For mobile, regenerate the HTML and send an update message if possible.
+    if (Platform.OS !== 'web') {
+      setTableauEmbedHTML(generateTableauHtml(newStartDate, newEndDate));
+      if (vizRef.current) {
+        vizRef.current.injectJavaScript(`
+          window.postMessage(JSON.stringify({
+            type: 'updateDateRange',
+            startDate: '${newStartDate}',
+            endDate: '${newEndDate}'
+          }), '*');
+          true;
+        `);
       }
     } else {
-      // For mobile, regenerate the HTML and update the WebView
-      setTableauEmbedHTML(generateTableauHtml(newDate));
+      // For web: update existing viz by changing the parameter values
+      if (window.viz) {
+        const { start, end } = getDateTimeRange(newStartDate, newEndDate);
+        const workbook = window.viz.getWorkbook();
+        workbook.changeParameterValueAsync("Start Date", start)
+          .then(() => workbook.changeParameterValueAsync("End Date", end))
+          .then(() => {
+            const sheet = workbook.getActiveSheet();
+            let activeSheet = sheet;
+            if (sheet.getSheetType() === 'dashboard') {
+              const worksheets = sheet.getWorksheets();
+              if (worksheets.length > 0) {
+                activeSheet = worksheets[0];
+              }
+            }
+            return activeSheet.zoomAsync("fitdata").then(() => activeSheet.getDataAsync());
+          })
+      }
     }
   };
 
-  // Web version with dynamic filter
+  // Optimized WebView component with better scrolling configuration
+  const OptimizedWebView = memo(({ htmlSource }) => {
+    return (
+      <View style={styles.webViewContainer}>
+        <WebView
+          ref={vizRef}
+          originWhitelist={['*']}
+          source={{ html: htmlSource }}
+          style={styles.webView}
+          javaScriptEnabled={true}
+          domStorageEnabled={true}
+          scrollEnabled={true}
+          // Ensure hardware acceleration is enabled on Android
+          androidHardwareAccelerationDisabled={false}
+          // Allow nested scrolling for smoother interactions
+          nestedScrollEnabled={true}
+          onMessage={(event) => {
+            console.log("Message from WebView:", event.nativeEvent.data);
+            try {
+              const msgData = JSON.parse(event.nativeEvent.data);
+              if (msgData.type === 'glucoseData') {
+                setGlucoseMetrics({
+                  glucoseAvg: msgData.glucoseAvg,
+                  glucoseMin: msgData.glucoseMin,
+                  glucoseMax: msgData.glucoseMax
+                });
+              }
+            } catch (e) {
+              console.error("Error parsing message:", e);
+            }
+          }}
+          // Prevent unnecessary re-renders during scroll events
+          scrollEventThrottle={16}
+        />
+      </View>
+    );
+  });
+
+  // Web version using the Tableau JavaScript API directly
   const WebTableauEmbed = () => {
     useEffect(() => {
-      // Effect to handle any web-specific initialization
-    }, []);
-
+      const loadTableauAPI = () => {
+        return new Promise((resolve, reject) => {
+          if (window.tableau && typeof window.tableau.Viz === 'function') {
+            return resolve(window.tableau);
+          }
+          const script = document.createElement('script');
+          script.src = 'https://public.tableau.com/javascripts/api/tableau-2.min.js';
+          script.async = true;
+          script.onload = () => {
+            // Increase delay to allow the API to fully initialize
+            setTimeout(() => {
+              if (window.tableau && typeof window.tableau.Viz === 'function') {
+                resolve(window.tableau);
+              } else {
+                reject(new Error('Tableau API failed to initialize after load'));
+              }
+            }, 1000); // increased delay from 200ms to 1000ms
+          };
+          script.onerror = () => reject(new Error('Failed to load Tableau API script'));
+          document.body.appendChild(script);
+        });
+      };
+  
+      loadTableauAPI()
+        .then(() => {
+          function initializeViz() {
+            const containerDiv = document.getElementById("vizContainer");
+            if (!containerDiv) {
+              console.error("Container div not found");
+              return;
+            }
+            const url = "https://public.tableau.com/views/Sample1_17394932043110/Sheet1";
+            const { start, end } = getDateTimeRange(dateRange.startDate, dateRange.endDate);
+            const options = {
+              hideTabs: true,
+              hideToolbar: true,
+              width: "100%",
+              height: "100%",
+              onFirstInteractive: function() {
+                console.log("Viz is interactive and loaded");
+                const workbook = window.viz.getWorkbook();
+                workbook.changeParameterValueAsync("Start Date", start)
+                  .then(() => workbook.changeParameterValueAsync("End Date", end))
+                  .then(function() {
+                    const sheet = workbook.getActiveSheet();
+                    let activeSheet = sheet;
+                    if (sheet.getSheetType() === 'dashboard') {
+                      const worksheets = sheet.getWorksheets();
+                      if (worksheets.length > 0) {
+                        activeSheet = worksheets[0];
+                      }
+                    }
+                    return activeSheet.zoomAsync("fitdata").then(() => activeSheet.getDataAsync());
+                  });
+              }
+            };
+            try {
+              window.viz = new window.tableau.Viz(containerDiv, url, options);
+            } catch (err) {
+              console.error("Error creating viz:", err);
+            }
+          }
+          initializeViz();
+        })
+        .catch((err) => {
+          console.error(err);
+          // Optionally, render a fallback UI or message for the user here.
+        });
+  
+      return () => {
+        if (window.viz) {
+          try {
+            window.viz.dispose();
+          } catch (err) {
+            console.error("Error disposing viz:", err);
+          }
+        }
+      };
+    }, [dateRange]);
+  
     return (
-      <div style={{ width: '100%', height: '100%' }}>
-        <tableau-viz
-          ref={vizRef}
-          id="tableauViz"
-          src="https://public.tableau.com/views/Sample1_17394932043110/Sheet1"
-          device="default"
-          toolbar="hidden"
-          hide-tabs
-          hide-title
-          hide-caption
-          hide-legend
-          hide-tooltips
-          hide-ui
-          hide-field-labels
-        >
-          <viz-filter field="Time" value={currentDate}></viz-filter>
-        </tableau-viz>
-      </div>
+      <div id="vizContainer" style={{ width: '100%', height: '100%', border: '1px solid #eee' }}></div>
     );
   };
+  
+  
 
   // Render chart based on platform
   const renderChart = () => {
     if (Platform.OS === 'web') {
       return <WebTableauEmbed />;
     } else {
-      return (
-        <WebView
-          key={currentDate} // This forces a re-render when the date changes
-          originWhitelist={['*']}
-          source={{ html: tableauEmbedHTML }}
-          style={{ flex: 1 }}
-          javaScriptEnabled={true}
-          domStorageEnabled={true}
-        />
-      );
+      return <OptimizedWebView htmlSource={tableauEmbedHTML} />;
     }
   };
 
-  //Way to easily format date for easy understanding
-  const formatDate = (dateString) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', { 
+  // Format date for display
+  const formatDateRange = () => {
+    const startDateObj = new Date(dateRange.startDate + "T00:00:00");
+    const endDateObj = new Date(dateRange.endDate + "T00:00:00");
+    
+    return `${startDateObj.toLocaleDateString('en-US', { 
       month: 'short', 
-      day: 'numeric', 
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
+      day: 'numeric'
+    })} - ${endDateObj.toLocaleDateString('en-US', { 
+      month: 'short', 
+      day: 'numeric',
+      year: 'numeric'
+    })}`;
   };
 
-  // Sample data set, wil be modified later to show range from now - till
-  const dateSamples = [
-    { label: 'Start', value: '2015-06-06 16:50:00' },  // Original start date
-    { label: 'Jun 7', value: '2015-06-07 10:00:00' },
-    { label: 'Jun 15', value: '2015-06-15 12:00:00' },
-    { label: 'Jul 1', value: '2015-07-01 08:00:00' },
-    { label: 'Aug 1', value: '2015-08-01 14:30:00' }
+  // Predefined date ranges for quick selection
+  const dateRangeOptions = [
+    { 
+      label: 'Today', 
+      startDate: '2025-03-01',
+      endDate: '2025-03-01'
+    },
+    { 
+      label: 'Last 7 Days', 
+      startDate: '2025-03-01',
+      endDate: '2025-03-07'
+    },
+    { 
+      label: 'Last 14 Days', 
+      startDate: '2025-03-01',
+      endDate: '2025-03-15'
+    }
   ];
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Header with current date */}
+      {/* Header with current date range */}
       <View style={styles.header}>
         <Text style={styles.title}>GL Level</Text>
-        <Text style={styles.dateRange}>{formatDate(currentDate)}</Text>
+        <Text style={styles.dateRange}>{formatDateRange()}</Text>
       </View>
 
       {/* Chart Container */}
@@ -163,18 +391,19 @@ export default function glucoseView() {
         {renderChart()}
       </View>
 
-      {/* Date selection tabs */}
+      {/* Date range selection tabs */}
       <View style={styles.tabContainer}>
-        {dateSamples.map((date) => (
+        {dateRangeOptions.map((option) => (
           <TouchableOpacity 
-            key={date.value} 
-            onPress={() => updateDateFilter(date.value)}
+            key={option.label} 
+            onPress={() => updateDateRangeFilter(option.startDate, option.endDate)}
           >
             <Text style={[
               styles.tabItem, 
-              currentDate === date.value ? styles.activeTab : null
+              (dateRange.startDate === option.startDate && dateRange.endDate === option.endDate) 
+                ? styles.activeTab : null
             ]}>
-              {date.label}
+              {option.label}
             </Text>
           </TouchableOpacity>
         ))}
@@ -184,9 +413,9 @@ export default function glucoseView() {
       <View style={styles.metricsContainer}>
         <View style={styles.metricBox}>
           <Text style={styles.metricTitle}>Glucose</Text>
-          <Text style={styles.metricValue}>High: XX</Text>
-          <Text style={styles.metricValue}>Low: XX</Text>
-          <Text style={styles.metricValue}>Average: XX</Text>
+          <Text style={styles.metricValue}>High: {glucoseMetrics.glucoseMax}</Text>
+          <Text style={styles.metricValue}>Low: {glucoseMetrics.glucoseMin}</Text>
+          <Text style={styles.metricValue}>Average: {glucoseMetrics.glucoseAvg}</Text>
         </View>
 
         <View style={styles.metricBox}>
@@ -200,11 +429,11 @@ export default function glucoseView() {
       {/* Navigation Buttons */}
       <View style={styles.circlesContainer}>
         <TouchableOpacity 
-          style={styles.circlePlaceholder}
+          style={[styles.circlePlaceholder, styles.activeCircle]}
           onPress={handleNavigateToView1}
           activeOpacity={0.7}
         >
-          <Text style={styles.circleText}>View 1</Text>
+          <Text style={styles.circleText}>Glucose</Text>
         </TouchableOpacity>
         
         <TouchableOpacity 
@@ -212,7 +441,7 @@ export default function glucoseView() {
           onPress={handleNavigateToView2}
           activeOpacity={0.7}
         >
-          <Text style={styles.circleText}>View 2</Text>
+          <Text style={styles.circleText}>Calories</Text>
         </TouchableOpacity>
         
         <TouchableOpacity 
@@ -220,7 +449,7 @@ export default function glucoseView() {
           onPress={handleNavigateToView3}
           activeOpacity={0.7}
         >
-          <Text style={styles.circleText}>View 3</Text>
+          <Text style={styles.circleText}>Exercise</Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>
@@ -249,11 +478,19 @@ const styles = StyleSheet.create({
     color: '#666',
   },
   chartContainer: {
-    height: 350,
+    height: 550,
     borderRadius: 10,
     overflow: 'hidden',
     backgroundColor: '#F0F0F0',
     marginBottom: 16,
+  },
+  // New container for the optimized WebView
+  webViewContainer: {
+    flex: 1,
+    overflow: 'hidden',
+  },
+  webView: {
+    flex: 1,
   },
   tabContainer: {
     flexDirection: 'row',
@@ -302,6 +539,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#F3E8FF',
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  activeCircle: {
+    backgroundColor: '#E9D5FF',
+    borderWidth: 2,
+    borderColor: '#7D4ED4',
   },
   circleText: {
     fontSize: 12,
