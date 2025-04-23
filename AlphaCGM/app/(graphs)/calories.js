@@ -1,81 +1,253 @@
-import React from 'react';
-import { View, Text, StyleSheet, SafeAreaView, TouchableOpacity } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { View, Text, StyleSheet, SafeAreaView, TouchableOpacity, Platform, ScrollView } from 'react-native';
 import { router } from 'expo-router';
+import LineChartComponent from '../../components/LineChartComponent';
+import { loadCSVFromAssets, filterDataByDateRange, calculateStats } from '../../scripts/csvParser';
 
-export default function caloriesView() {
+export default function CaloriesView() {
+  // State for date range selection
+  const [dateRange, setDateRange] = useState({
+    startDate: '2025-03-01',
+    endDate: '2025-03-01'
+  });
+  
+  // State for the data from CSV
+  const [caloriesData, setCaloriesData] = useState([]);
+  const [filteredData, setFilteredData] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  
+  // Metrics state
+  const [consumedMetrics, setConsumedMetrics] = useState({
+    min: 0,
+    max: 0,
+    avg: 0,
+    total: 0
+  });
+  
+  const [burnedMetrics, setBurnedMetrics] = useState({
+    min: 0,
+    max: 0,
+    avg: 0,
+    total: 0
+  });
+  
+  // Load CSV data on component mount
+  useEffect(() => {
+    async function loadData() {
+      setIsLoading(true);
+      try {
+        // Load calories data from CSV file
+        const data = await loadCSVFromAssets('extended_30day_data.csv');
+        setCaloriesData(data);
+        
+        // Apply initial filtering
+        updateFilteredData(data, dateRange.startDate, dateRange.endDate);
+      } catch (error) {
+        console.error("Error loading calories data:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+    
+    loadData();
+  }, []);
+  
+  // Update filtered data when date range changes
+  useEffect(() => {
+    updateFilteredData(caloriesData, dateRange.startDate, dateRange.endDate);
+  }, [dateRange, caloriesData]);
+  
+  // Function to update filtered data and calculate metrics
+  const updateFilteredData = (data, startDate, endDate) => {
+    if (!data || data.length === 0) return;
+    
+    const filtered = filterDataByDateRange(data, startDate, endDate, 'timestamp');
+    setFilteredData(filtered);
+    
+    // Calculate metrics
+    const consumedStats = calculateStats(filtered, 'calories_consumed');
+    const totalConsumed = filtered.reduce((sum, item) => sum + item.calories_consumed, 0);
+    setConsumedMetrics({
+      ...consumedStats,
+      total: parseFloat(totalConsumed.toFixed(2))
+    });
+    
+    const burnedStats = calculateStats(filtered, 'calories_burned');
+    const totalBurned = filtered.reduce((sum, item) => sum + item.calories_burned, 0);
+    setBurnedMetrics({
+      ...burnedStats,
+      total: parseFloat(totalBurned.toFixed(2))
+    });
+  };
+  
   // Navigation handlers
   const handleNavigateToView1 = () => {
-    router.push('/glucose')
+    router.push('/glucose');
   };
 
   const handleNavigateToView2 = () => {
-    // Navigate to secondview
     router.push('/calories');
   };
-  
+
   const handleNavigateToView3 = () => {
-    router.push('/exercise')
+    router.push('/exercise');
   };
+  
+  // Format date for display
+  const formatDateRange = () => {
+    const startDateObj = new Date(dateRange.startDate + "T00:00:00");
+    const endDateObj = new Date(dateRange.endDate + "T00:00:00");
+    
+    return `${startDateObj.toLocaleDateString('en-US', { 
+      month: 'short', 
+      day: 'numeric'
+    })} - ${endDateObj.toLocaleDateString('en-US', { 
+      month: 'short', 
+      day: 'numeric',
+      year: 'numeric'
+    })}`;
+  };
+  
+  // Predefined date ranges for quick selection
+  const dateRangeOptions = [
+    { 
+      label: 'Today', 
+      startDate: '2025-03-01',
+      endDate: '2025-03-01'
+    },
+    { 
+      label: 'Last 7 Days', 
+      startDate: '2025-03-01',
+      endDate: '2025-03-07'
+    },
+    { 
+      label: 'Last 14 Days', 
+      startDate: '2025-03-01',
+      endDate: '2025-03-15'
+    }
+  ];
+  
+  // Update date range filter
+  const updateDateRangeFilter = (newStartDate, newEndDate) => {
+    setDateRange({
+      startDate: newStartDate,
+      endDate: newEndDate
+    });
+  };
+  
+  // Check if we have a single day selected (for chart formatting)
+  const isOneDay = dateRange.startDate === dateRange.endDate;
+  
+  // Calculate calorie deficit/surplus
+  const calorieBalance = consumedMetrics.total - burnedMetrics.total;
+  const isCalorieDeficit = calorieBalance < 0;
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.title}>GL Level</Text>
-        <Text style={styles.dateRange}>February 1st - March 2nd</Text>
-      </View>
-
-      {/* Chart Placeholder */}
-      <View style={styles.chartContainer}>
-        <Text style={styles.chartPlaceholder}>[Line Chart Placeholder]</Text>
-      </View>
-
-      {/* Tabs (Today, 1W, 1M, etc.) */}
-      <View style={styles.tabContainer}>
-        <Text style={[styles.tabItem, styles.activeTab]}>Today</Text>
-        <Text style={styles.tabItem}>1W</Text>
-        <Text style={styles.tabItem}>1M</Text>
-        <Text style={styles.tabItem}>3M</Text>
-        <Text style={styles.tabItem}>6M</Text>
-        <Text style={styles.tabItem}>1Y</Text>
-      </View>
-
-      {/* Glucose & Insulin Metrics */}
-      <View style={styles.metricsContainer}>
-        <View style={styles.metricBox}>
-          <Text style={styles.metricTitle}>Calories</Text>
-          <Text style={styles.metricValue}>High: XX</Text>
-          <Text style={styles.metricValue}>Low: XX</Text>
-          <Text style={styles.metricValue}>Average: XX</Text>
+      <ScrollView contentContainerStyle={styles.scrollContainer}>
+        {/* Header with current date range */}
+        <View style={styles.header}>
+          <Text style={styles.title}>Calories Consumed - Calories Burnt</Text>
+          <Text style={styles.dateRange}>{formatDateRange()}</Text>
         </View>
-      </View>
 
-      {/* Circular Placeholders - Now TouchableOpacity */}
-      <View style={styles.circlesContainer}>
-        <TouchableOpacity 
-          style={styles.circlePlaceholder}
-          onPress={handleNavigateToView1}
-          activeOpacity={0.7}
-        >
-          <Text style={styles.circleText}>View 1</Text>
-        </TouchableOpacity>
-        
-        <TouchableOpacity 
-          style={styles.circlePlaceholder}
-          onPress={handleNavigateToView2}
-          activeOpacity={0.7}
-        >
-          <Text style={styles.circleText}>View 2</Text>
-        </TouchableOpacity>
-        
-        <TouchableOpacity 
-          style={styles.circlePlaceholder}
-          onPress={handleNavigateToView3}
-          activeOpacity={0.7}
-        >
-          <Text style={styles.circleText}>View 3</Text>
-        </TouchableOpacity>
-      </View>
+        {/* Chart Container */}
+        <View style={styles.chartContainer}>
+          {isLoading ? (
+            <Text style={styles.loadingText}>Loading data...</Text>
+          ) : (
+            <LineChartComponent 
+              data={filteredData}
+              title="Calories"
+              xAxis="timestamp"
+              yAxis="calories_consumed"
+              color="#7D4ED4"
+              secondaryDataKey="calories_burned"
+              secondaryColor="#FF6B6B"
+              chartHeight={350}
+              isOneDay={isOneDay}
+            />
+          )}
+        </View>
+
+        {/* Date range selection tabs */}
+        <View style={styles.tabContainer}>
+          {dateRangeOptions.map((option) => (
+            <TouchableOpacity 
+              key={option.label} 
+              onPress={() => updateDateRangeFilter(option.startDate, option.endDate)}
+            >
+              <Text style={[
+                styles.tabItem, 
+                (dateRange.startDate === option.startDate && dateRange.endDate === option.endDate) 
+                  ? styles.activeTab : null
+              ]}>
+                {option.label}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        {/* Calories Metrics */}
+        <View style={styles.metricsContainer}>
+          <View style={styles.metricBox}>
+            <Text style={styles.metricTitle}>Calories Consumed</Text>
+            <Text style={styles.metricValue}>Total: {consumedMetrics.total}</Text>
+            <Text style={styles.metricValue}>Average: {consumedMetrics.avg}/day</Text>
+            <Text style={styles.metricValue}>High: {consumedMetrics.max}</Text>
+          </View>
+
+          <View style={styles.metricBox}>
+            <Text style={styles.metricTitle}>Calories Burned</Text>
+            <Text style={styles.metricValue}>Total: {burnedMetrics.total}</Text>
+            <Text style={styles.metricValue}>Average: {burnedMetrics.avg}/day</Text>
+            <Text style={styles.metricValue}>High: {burnedMetrics.max}</Text>
+          </View>
+        </View>
+
+        {/* New Feature: Calorie Balance */}
+        <View style={styles.balanceContainer}>
+          <Text style={styles.balanceTitle}>Calorie Balance</Text>
+          <Text style={[
+            styles.balanceValue, 
+            isCalorieDeficit ? styles.deficitText : styles.surplusText
+          ]}>
+            {isCalorieDeficit ? `-${Math.abs(calorieBalance)}` : `+${calorieBalance}`} calories
+          </Text>
+          <Text style={styles.balanceDescription}>
+            {isCalorieDeficit 
+              ? "You're in a calorie deficit! This may lead to weight loss if maintained." 
+              : "You're in a calorie surplus. Consider adjusting your intake or increasing activity for weight management."}
+          </Text>
+        </View>
+
+        {/* Navigation Buttons */}
+        <View style={styles.circlesContainer}>
+          <TouchableOpacity 
+            style={styles.circlePlaceholder}
+            onPress={handleNavigateToView1}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.circleText}>Glucose</Text>
+          </TouchableOpacity>
+          
+          <TouchableOpacity 
+            style={[styles.circlePlaceholder, styles.activeCircle]}
+            onPress={handleNavigateToView2}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.circleText}>Calories</Text>
+          </TouchableOpacity>
+          
+          <TouchableOpacity 
+            style={styles.circlePlaceholder}
+            onPress={handleNavigateToView3}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.circleText}>Exercise</Text>
+          </TouchableOpacity>
+        </View>
+      </ScrollView>
     </SafeAreaView>
   );
 }
@@ -84,8 +256,11 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#FFFFFF',
+  },
+  scrollContainer: {
     paddingHorizontal: 16,
-    paddingTop: 50, // or use SafeAreaView for iOS
+    paddingTop: Platform.OS === 'web' ? 20 : 50,
+    paddingBottom: 20,
   },
   header: {
     flexDirection: 'row',
@@ -102,15 +277,25 @@ const styles = StyleSheet.create({
     color: '#666',
   },
   chartContainer: {
-    height: 120,
+    height: 400,
     borderRadius: 10,
-    backgroundColor: '#F0F0F0',
+    overflow: 'hidden',
+    backgroundColor: '#F9F6FF',
+    marginBottom: 16,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 16,
   },
-  chartPlaceholder: {
-    color: '#999',
+  loadingText: {
+    color: '#666',
+    fontSize: 16,
+  },
+  // New container for the optimized WebView (mobile)
+  webViewContainer: {
+    flex: 1,
+    overflow: 'hidden',
+  },
+  webView: {
+    flex: 1,
   },
   tabContainer: {
     flexDirection: 'row',
@@ -120,10 +305,13 @@ const styles = StyleSheet.create({
   tabItem: {
     fontSize: 14,
     color: '#999',
+    padding: 5,
   },
   activeTab: {
     color: '#7D4ED4',
     fontWeight: 'bold',
+    borderBottomWidth: 2,
+    borderBottomColor: '#7D4ED4',
   },
   metricsContainer: {
     flexDirection: 'row',
@@ -156,6 +344,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#F3E8FF',
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  activeCircle: {
+    backgroundColor: '#E9D5FF',
+    borderWidth: 2,
+    borderColor: '#7D4ED4',
   },
   circleText: {
     fontSize: 12,
