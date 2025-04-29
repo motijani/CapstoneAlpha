@@ -13,21 +13,21 @@ export default function TabLayout() {
         name="glucose"
         options={{
           title: 'Glucose',
-          tabBarIcon: ({ color, size }) => <Ionicons name="compass-outline" color={color} size={size} />,
+          tabBarIcon: ({ color, size }) => <Ionicons name="pulse-outline" color={color} size={size} />,
         }}
       />
        <Tabs.Screen 
-        name="calories"
+        name="meal-plans"
         options={{
-          title: 'Calories',
-          tabBarIcon: ({ color, size }) => <Ionicons name="home-outline" color={color} size={size} />,
+          title: 'Meal Plans',
+          tabBarIcon: ({ color, size }) => <Ionicons name="restaurant-outline" color={color} size={size} />,
         }}
       />
        <Tabs.Screen 
-        name="exercise"
+        name="log-entries"
         options={{
-          title: 'Exercise',
-          tabBarIcon: ({ color, size }) => <Ionicons name="compass-outline" color={color} size={size} />,
+          title: 'Log Entries',
+          tabBarIcon: ({ color, size }) => <Ionicons name="create-outline" color={color} size={size} />,
         }}
       />
     </Tabs>

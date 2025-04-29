@@ -30,6 +30,23 @@ export const loadCSVFromAssets = async (csvFileName) => {
   }
 };
 
+// Get the current glucose data (second-to-last row) and predicted data (last row)
+export const getCurrentAndPredictedData = (data) => {
+  if (!data || data.length < 2) {
+    return { currentData: null, predictedData: null };
+  }
+  
+  // Sort data by timestamp to ensure we get the correct last and second-to-last rows
+  const sortedData = [...data].sort((a, b) => {
+    return new Date(a.timestamp) - new Date(b.timestamp);
+  });
+  
+  const currentData = sortedData[sortedData.length - 2]; // Second-to-last row
+  const predictedData = sortedData[sortedData.length - 1]; // Last row
+  
+  return { currentData, predictedData };
+};
+
 // Parse CSV text into array of objects with cleaned headers
 export const parseCSV = (csvText) => {
   const lines = csvText.split('\n');
