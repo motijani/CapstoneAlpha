@@ -1,15 +1,15 @@
 // src/app/glucose.js
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { View, Text, StyleSheet, SafeAreaView, TouchableOpacity, Platform, ScrollView } from 'react-native';
 import { router } from 'expo-router';
 import LineChartComponent from '../../components/LineChartComponent';
 import { loadCSVFromAssets, filterDataByDateRange, calculateStats, getCurrentAndPredictedData } from '../../scripts/csvParser';
 
 export default function GlucoseView() {
-  // Default to March 30, 2025 for the "Today" tab (date of the second-to-last row)
-  const defaultDate = '2025-03-30';
+  // Will be set dynamically based on the last row in the CSV
+  const [defaultDate, setDefaultDate] = useState('2025-03-30');
 
-  const [dateRange, setDateRange] = useState({ startDate: defaultDate, endDate: defaultDate });
+  const [dateRange, setDateRange] = useState({ startDate: '2025-03-30', endDate: '2025-03-30' });
   const [rawData, setRawData] = useState([]);
   const [chartData, setChartData] = useState([]);
   const [barData, setBarData] = useState([]);
@@ -26,13 +26,22 @@ export default function GlucoseView() {
     async function loadData() {
       setIsLoading(true);
       try {
-        const data = await loadCSVFromAssets('extended_30day_data.csv');
+        // Use split_Processed_Patient_3_part1.csv for glucose data
+        const data = await loadCSVFromAssets('split_Processed_Patient_3_part1.csv');
         setRawData(data);
         
         // Get current data from second-to-last row and predicted data from last row
         const { currentData: current, predictedData: predicted } = getCurrentAndPredictedData(data);
         setCurrentData(current);
         setPredictedData(predicted);
+        
+        // Set default date based on the last row in the CSV
+        if (predicted && predicted.timestamp) {
+          const lastDate = new Date(predicted.timestamp);
+          const formattedDate = lastDate.toISOString().split('T')[0]; // Format: YYYY-MM-DD
+          setDefaultDate(formattedDate);
+          setDateRange({ startDate: formattedDate, endDate: formattedDate });
+        }
       } catch (e) {
         console.error('Error loading data:', e);
       } finally {
@@ -49,59 +58,52 @@ export default function GlucoseView() {
     let calorieData = [];
 
     if (isOneDay) {
-      // For "Today" view, group data by hour but keep the last point (prediction) as is
+      // For "Today" view, we need to ensure we have enough data points
       
-      // Filter data for the selected date
-      const dateStart = new Date(`${dateRange.startDate}T00:00:00`);
-      const dateEnd = new Date(`${dateRange.startDate}T23:59:59.999`);
-      
-      const dayData = rawData.filter(item => {
-        const t = new Date(item.timestamp);
-        return t >= dateStart && t <= dateEnd;
-      });
-      
-      // Sort data by timestamp
-      const sortedData = [...dayData].sort((a, b) => {
+      // First, sort all data by timestamp
+      const allSortedData = [...rawData].sort((a, b) => {
         return new Date(a.timestamp) - new Date(b.timestamp);
       });
+      
+      // Get the current date from the dateRange
+      const currentDate = new Date(`${dateRange.startDate}T12:00:00`);
+      const currentDateStr = currentDate.toISOString().split('T')[0];
+      
+      console.log(`Current date for filtering: ${currentDateStr}`);
+      
+      // For debugging, log the first few timestamps in the raw data
+      console.log("First few timestamps in raw data:");
+      rawData.slice(0, 5).forEach(item => {
+        console.log(new Date(item.timestamp).toISOString());
+      });
+      
+      // Find data for the current date - use a more flexible approach
+      // Instead of exact date matching, get data from the last 24 hours
+      const dayData = allSortedData.slice(-288); // 288 = 12 points per hour * 24 hours
+      
+      console.log(`Using ${dayData.length} data points for the chart`);
+      
+      // Always use all available data
+      let dataToUse = dayData;
+      
+      // Sort the data we're using
+      const sortedData = [...dataToUse].sort((a, b) => {
+        return new Date(a.timestamp) - new Date(b.timestamp);
+      });
+      
+      console.log(`Using ${sortedData.length} total data points`);
       
       // Get the last point (prediction)
       const lastPoint = sortedData.length > 0 ? sortedData[sortedData.length - 1] : null;
       
-      // Group data by hour (except the last point)
-      const hourlyData = [];
-      for (let h = 0; h < 24; h++) {
-        const hourStart = new Date(`${dateRange.startDate}T${String(h).padStart(2,'0')}:00:00`);
-        const hourEnd = new Date(hourStart);
-        hourEnd.setMinutes(59, 59, 999);
-        
-        const inHour = sortedData.filter((item, index) => {
-          // Skip the last point (prediction)
-          if (index === sortedData.length - 1) return false;
-          
-          const t = new Date(item.timestamp);
-          return t >= hourStart && t <= hourEnd;
-        });
-        
-        if (inHour.length > 0) {
-          const avg = arr => arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : 0;
-          const g = parseFloat(avg(inHour.map(i => i.glucose)).toFixed(2));
-          const ins = parseFloat(avg(inHour.map(i => i.insulin)).toFixed(2));
-          
-          hourlyData.push({ 
-            timestamp: hourStart.toISOString(), 
-            glucose: g, 
-            insulin: ins 
-          });
-        }
-      }
+      // Map all data points to the format needed for the chart
+      const rawDataPoints = sortedData.map(item => ({
+        timestamp: item.timestamp,
+        glucose: item.glucose,
+        insulin: item.insulin
+      }));
       
-      // Add the last point (prediction) to the hourly data
-      if (lastPoint) {
-        hourlyData.push(lastPoint);
-      }
-      
-      buckets = hourlyData;
+      buckets = rawDataPoints;
       
       // Generate calorie data for each hour
       for (let h = 0; h < 24; h++) {
@@ -157,12 +159,26 @@ export default function GlucoseView() {
     return `${start.toLocaleDateString('en-US',{month:'short',day:'numeric'})} - ${end.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})}`;
   };
 
-  // Preset tabs
-  const presets = [
-    { label: 'Today', start: defaultDate, end: defaultDate },
-    { label: 'Last 7 Days', start: '2025-03-24', end: '2025-03-30' },
-    { label: 'Last 14 Days', start: '2025-03-17', end: '2025-03-30' },
-  ];
+  // Preset tabs - dynamically calculated based on the last date
+  const presets = useMemo(() => {
+    // Create a date object from the default date
+    const lastDate = new Date(defaultDate);
+    
+    // Calculate dates for 7 days ago and 14 days ago
+    const sevenDaysAgo = new Date(lastDate);
+    sevenDaysAgo.setDate(lastDate.getDate() - 7);
+    const sevenDaysAgoStr = sevenDaysAgo.toISOString().split('T')[0];
+    
+    const fourteenDaysAgo = new Date(lastDate);
+    fourteenDaysAgo.setDate(lastDate.getDate() - 14);
+    const fourteenDaysAgoStr = fourteenDaysAgo.toISOString().split('T')[0];
+    
+    return [
+      { label: 'Today', start: defaultDate, end: defaultDate },
+      { label: 'Last 7 Days', start: sevenDaysAgoStr, end: defaultDate },
+      { label: 'Last 14 Days', start: fourteenDaysAgoStr, end: defaultDate },
+    ];
+  }, [defaultDate]);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -179,6 +195,9 @@ export default function GlucoseView() {
             <Text style={styles.loadingText}>Loading data...</Text>
           ) : (
             <>
+              {/* Debug: Log chart data */}
+              {console.log(`Chart data length: ${chartData.length}`)}
+              {console.log(`Is one day: ${isOneDay}`)}
               <LineChartComponent
                 data={chartData}
                 title="Glucose Level"
@@ -191,6 +210,7 @@ export default function GlucoseView() {
                 secondaryColor="#4EAEDC"
                 chartHeight={350}
                 isOneDay={isOneDay}
+                limitDataPoints={30} // Show previous 30 data points along with current point
               />
               <View style={styles.chartLegend}>
                 <View style={styles.legendItem}>
@@ -204,13 +224,13 @@ export default function GlucoseView() {
                 {isOneDay && (
                   <View style={styles.legendItem}>
                     <View style={[styles.legendColor, { backgroundColor: '#51ff00' }]} />
-                    <Text style={styles.legendText}>Predicted Glucose (Next 5 min)</Text>
+                    <Text style={styles.legendText}>Latest Point</Text>
                   </View>
                 )}
               </View>
               <Text style={styles.chartNote}>
                 {isOneDay 
-                  ? "Note: Data is shown chronologically from left to right. The orange point at the end is the predicted glucose level for the next 5 minutes."
+                  ? "Note: Data shows the previous 30 data points along with the current point, chronologically from left to right. The green point at the end represents the latest reading."
                   : "Note: Data is shown chronologically from left to right, displaying average values for each day."}
               </Text>
             </>

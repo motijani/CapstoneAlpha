@@ -25,7 +25,7 @@ export default function MealPlansView() {
         });
         
         if (sortedData.length > 0) {
-          const latestGlucose = sortedData[1].glucose; // 1 instead of 0 because the last row is the predicted value
+          const latestGlucose = sortedData[0].glucose; // 1 instead of 0 because the last row is the predicted value
           setGlucoseValue(latestGlucose);
           
           // Determine glucose level category

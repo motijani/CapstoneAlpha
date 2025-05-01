@@ -16,7 +16,8 @@ const LineChartComponent = ({
   predictionColor = '#51ff00', // Prediction color (Full Glucose Line - Green)
   barData = [],
   chartHeight = 350,
-  isOneDay = true
+  isOneDay = true,
+  limitDataPoints = 0 // Number of data points to limit to (0 = no limit)
 }) => {
   const chartData = useMemo(() => {
     if (!data || data.length < 2) {
@@ -26,14 +27,45 @@ const LineChartComponent = ({
       };
     }
 
-    const { predictedData } = getCurrentAndPredictedData(data);
-    const hasPrediction = isOneDay && predictedData;
+    // First sort the data chronologically
     const fullSortedData = [...data].sort((a, b) => new Date(a[xAxis]) - new Date(b[xAxis]));
-    const historicalPlotData = hasPrediction ? fullSortedData.slice(0, -1) : [...fullSortedData];
+    
+    // Get prediction information from the ORIGINAL data, not the limited data
+    const { predictedData } = getCurrentAndPredictedData(fullSortedData);
+    const hasPrediction = isOneDay && predictedData;
+    
+    // Debug: Log the original data length
+    console.log(`Original data length: ${fullSortedData.length}`);
+    console.log(`Limiting to ${limitDataPoints} points`);
+    
+    // Apply data point limiting if specified
+    let limitedFullSortedData = [...fullSortedData];
+    
+    // Only apply limiting if we have more points than the limit AND the limit is greater than 0
+    if (limitDataPoints > 0 && fullSortedData.length > limitDataPoints) {
+      if (hasPrediction) {
+        // If we have a prediction point, keep it and take the previous N-1 points
+        const lastPoint = fullSortedData[fullSortedData.length - 1]; // Prediction point
+        const previousPoints = fullSortedData.slice(-limitDataPoints - 1, -1); // Previous N points
+        limitedFullSortedData = [...previousPoints, lastPoint];
+      } else {
+        // No prediction point, just take the last N points
+        limitedFullSortedData = fullSortedData.slice(-limitDataPoints);
+      }
+      
+      // Debug: Log the limited data
+      console.log(`Limited data: ${limitedFullSortedData.length} points`);
+    } else {
+      // If we have fewer points than the limit, use all available points
+      console.log(`Using all available data points: ${limitedFullSortedData.length}`);
+    }
+    
+    const historicalPlotData = hasPrediction ? limitedFullSortedData.slice(0, -1) : [...limitedFullSortedData];
 
     let labels = [];
     let finalLabels = [];
-    const labelDataSource = hasPrediction ? fullSortedData : historicalPlotData;
+    // Use the limited data for labels when limiting is applied
+    const labelDataSource = hasPrediction ? limitedFullSortedData : historicalPlotData;
 
     if (labelDataSource.length > 0) {
         labels = labelDataSource.map((item) => {
@@ -45,10 +77,33 @@ const LineChartComponent = ({
           }
         });
 
-        // Reduce labels, trying to keep first and last if predicting
-        const numLabelsToShow = 8; // Target number of labels
-        const step = labels.length > numLabelsToShow ? Math.ceil(labels.length / numLabelsToShow) : 1;
-        finalLabels = labels.filter((_, i) => i % step === 0);
+        // When limiting data points, show all labels
+        if (limitDataPoints > 0) {
+          // Show all labels when limiting data points
+          finalLabels = [...labels];
+          console.log(`Using all labels: ${finalLabels.length}`);
+        } else {
+          // For one-day view, only show labels every 2 hours (0:00, 2:00, 4:00, etc.)
+          if (isOneDay) {
+            finalLabels = labels.filter((label, index) => {
+              const date = new Date(labelDataSource[index][xAxis]);
+              // Only include labels for even hours and minutes are 00
+              return date.getHours() % 2 === 0 && date.getMinutes() === 0;
+            });
+            
+            // If we don't have any labels that match our criteria, fall back to showing some labels
+            if (finalLabels.length === 0) {
+              const numLabelsToShow = 8; // Target number of labels
+              const step = labels.length > numLabelsToShow ? Math.ceil(labels.length / numLabelsToShow) : 1;
+              finalLabels = labels.filter((_, i) => i % step === 0);
+            }
+          } else {
+            // For multi-day view, keep the original logic
+            const numLabelsToShow = 8; // Target number of labels
+            const step = labels.length > numLabelsToShow ? Math.ceil(labels.length / numLabelsToShow) : 1;
+            finalLabels = labels.filter((_, i) => i % step === 0);
+          }
+        }
 
         // Ensure last label is included if predicting and it wasn't picked by filter step
         if (hasPrediction && labels.length > 0 && !finalLabels.includes(labels[labels.length - 1])) {
@@ -73,7 +128,8 @@ const LineChartComponent = ({
     }
 
     let chartDatasets = [];
-    const glucoseFull = fullSortedData.map(item => item[yAxis]);
+    // Use the limited data for plotting
+    const glucoseFull = limitedFullSortedData.map(item => item[yAxis]);
     const glucoseHistorical = historicalPlotData.map(item => item[yAxis]);
     let insulinHistorical = [];
     if (secondaryDataKey) {
@@ -91,19 +147,35 @@ const LineChartComponent = ({
         }
     }
 
-    chartDatasets.push({ // Dataset 1: Full Glucose Line (Green)
+    // Log the data we're about to use for the chart
+    console.log("Glucose data points:", glucoseFull.length);
+    console.log("Glucose values:", glucoseFull);
+    if (secondaryDataKey) {
+      console.log("Insulin data points:", insulinHistorical.length);
+    }
+    
+    // Create a single dataset for glucose with the prediction point styled differently
+    chartDatasets.push({
       data: glucoseFull,
-      color: (opacity = 1) => predictionColor,
-      strokeWidth: 2,
-      propsForDots: { r: "4", fill: predictionColor, stroke: predictionColor }
-    });
-    chartDatasets.push({ // Dataset 2: Historical Glucose (Purple)
-      data: glucoseHistorical,
       color: (opacity = 1) => color,
       strokeWidth: 2,
-      propsForDots: { r: "4", fill: color, stroke: color }
+      propsForDots: {
+        r: (dataPoint, dataPointIndex) => {
+          // Make the last point slightly larger
+          return dataPointIndex === glucoseFull.length - 1 ? "6" : "4";
+        },
+        fill: (dataPoint, dataPointIndex) => {
+          // Always use prediction color for the last point
+          return dataPointIndex === glucoseFull.length - 1 ? predictionColor : color;
+        },
+        stroke: (dataPoint, dataPointIndex) => {
+          // Always use prediction color for the last point
+          return dataPointIndex === glucoseFull.length - 1 ? predictionColor : color;
+        }
+      }
     });
-    if (secondaryDataKey) { // Dataset 3: Historical Insulin (Blue)
+    
+    if (secondaryDataKey) { // Dataset for Insulin (Blue)
       chartDatasets.push({
         data: insulinHistorical,
         color: (opacity = 1) => secondaryColor,
@@ -116,7 +188,7 @@ const LineChartComponent = ({
       labels: finalLabels,
       datasets: chartDatasets
     };
-  }, [data, xAxis, yAxis, color, secondaryDataKey, secondaryColor, predictionColor, isOneDay]);
+  }, [data, xAxis, yAxis, color, secondaryDataKey, secondaryColor, predictionColor, isOneDay, limitDataPoints]);
 
    const barChartData = useMemo(() => {
      if (!barData || barData.length === 0 || !isOneDay) {
@@ -146,11 +218,14 @@ const LineChartComponent = ({
       color: (opacity = 1) => `rgba(100, 100, 100, ${opacity})`,
       labelColor: (opacity = 1) => `rgba(100, 100, 100, ${opacity})`,
       style: { borderRadius: 10 },
-      propsForDots: { r: "4", strokeWidth: "2", stroke: "#FFFFFF" },
+      // Remove propsForDots from here to prevent overriding the dataset's propsForDots
       propsForLabels: { fontSize: 10 },
-      // ADDED yLabelsOffset to shift Y-axis labels right
-      yLabelsOffset: 5, // Adjust this value as needed (positive shifts right)
-      // xLabelsOffset: -5 // Keep X labels slightly shifted up if needed
+      yLabelsOffset: 5,
+      xAxisLabel: 'Time',
+      yAxisLabel: 'Value',
+      yAxisInterval: 1, // Show all data points
+      formatYLabel: (yValue) => yValue.toString(),
+      formatXLabel: (xValue) => xValue.toString()
     };
 
    const barChartSpecificConfig = {
@@ -166,21 +241,29 @@ const LineChartComponent = ({
 
   return (
     <View style={styles.container}>
+      {/* Debug info to show data points */}
+      <View style={{ marginBottom: 10, padding: 5, backgroundColor: '#f0f0f0', borderRadius: 5, width: '100%' }}>
+        <Text style={{ fontSize: 12, color: '#666', textAlign: 'center' }}>
+          Displaying {chartData.datasets[0].data.length} data points
+        </Text>
+      </View>
+      
       <LineChart
         data={chartData}
-        // Adjusted width slightly to compensate for potential offset shift
         width={Dimensions.get('window').width - 20}
         height={chartHeight}
         chartConfig={mainChartConfig}
-        bezier
-        style={styles.chart} // Removed padding from style
+        style={styles.chart}
         withInnerLines={true}
         withOuterLines={true}
         withHorizontalLabels={true}
         withVerticalLabels={true}
         fromZero={false}
         segments={5}
+        bezier={false}
         withDots={true}
+        withShadow={false}
+        dotSize={6}
       />
 
       {/* Bar Chart Section */}
